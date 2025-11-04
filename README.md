@@ -5,9 +5,8 @@ C/C++ header-only logging library.
 
 TODO
 ----
-- Fix silent errors...
 - Write "Documentation" section in header
-- Fix thread safety
+- Add thread safety (pthreads, c11-threads, SDL threads?)
 
 Dependencies
 ------------
