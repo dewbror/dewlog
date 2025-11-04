@@ -116,8 +116,6 @@ void __c_log__msg(const uint8_t level, const char *const file, const int32_t lin
 #define COLOR_CYAN   "\x1b[36m"
 #define COLOR_RESET  "\x1b[0m"
 
-#define C_LOG_LEVEL_COUNT 5
-
 // @TODO: Fix thread safety, global non-consts are not thread safe. Technically logging to stderr is thread safe but we
 // should still make it excplicitly thread safe. My current plan is to make it thread safe with mutexes
 static bool C_LOG_logging_to_file = false;
@@ -225,15 +223,19 @@ void __c_log__msg(const uint8_t level, const char *const file, const int32_t lin
     if(ret == 0)
         return;
 
+    // 
+
     // Print date, time, log-level and info
-    static const char *const levels[] = {"[ERR] ", "[WRN] ", "[INF] ", "[DBG] ", "[TRC] "};
+#define C_LOG_LEVEL_COUNT 5
+    static const char *const levels[C_LOG_LEVEL_COUNT] = {"[ERR] ", "[WRN] ", "[INF] ", "[DBG] ", "[TRC] "};
+    if(level >= C_LOG_LEVEL_COUNT)
+        level = C_LOG_LEVEL_COUNT - 1;
     if(C_LOG_logging_to_file) {
-        ret = fprintf(C_LOG_fp, "%s %s%s", timebuf, levels[level % C_LOG_LEVEL_COUNT], infobuf);
+        ret = fprintf(C_LOG_fp, "%s %s%s", timebuf, levels[level], infobuf);
         if(ret < 0)
             return;
-    }
-    else {
-        ret = fprintf(C_LOG_fp, "%s %s%s%s%s ", timebuf, color, levels[level % C_LOG_LEVEL_COUNT], COLOR_RESET,
+    } else {
+        ret = fprintf(C_LOG_fp, "%s %s%s%s%s ", timebuf, color, levels[level], COLOR_RESET,
             infobuf);
         if(ret < 0)
             return;
