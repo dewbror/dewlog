@@ -5,6 +5,7 @@ C/C++ header-only logging library.
 
 TODO
 ----
+- Find a better name than c_log.
 - Write "Documentation" section in header
 - Add thread safety (pthreads, c11-threads, SDL threads?)
 
