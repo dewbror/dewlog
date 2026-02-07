@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.5)
 
 # project name and version
-project(c_log_tests VERSION 0.1.0 LANGUAGES C)
+project(dewlog_tests VERSION 0.1.0 LANGUAGES C)
 set(PROJECT_EXE_NAME ${PROJECT_NAME})
 
 # specify C standard

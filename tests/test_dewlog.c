@@ -5,8 +5,8 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
-#define C_LOG_LEVEL 4
-#include "c_log.h"
+#define DEWLOG_LEVEL 4
+#include "dewlog.h"
 
 #define BUFFER_SIZE 512
 #define TEMP_LOG_FILE "./temp.log"
@@ -26,7 +26,7 @@ static int setup(void **state)
     // UNUSED
     (void)state;
 
-    c_log_open(TEMP_LOG_FILE);
+    dewlog_open(TEMP_LOG_FILE);
 
     return 0;
 }
@@ -36,7 +36,7 @@ static int teardown(void **state)
     // UNUSED
     (void)state;
 
-    c_log_close();
+    dewlog_close();
     remove(TEMP_LOG_FILE);
 
     return 0;
@@ -53,7 +53,7 @@ static void test_log_file_creation(void **state)
 
     fclose(f);
 
-    c_log_close();
+    dewlog_close();
 
     char buf[BUFFER_SIZE];
     read_log_file(buf, sizeof(buf));
@@ -67,7 +67,7 @@ static void test_log_message_written(void **state)
     (void)state;
 
     LOG_ERROR("Test message: %d", 42);
-    c_log_close();
+    dewlog_close();
 
     char buf[BUFFER_SIZE];
     read_log_file(buf, sizeof(buf));
@@ -85,7 +85,7 @@ static void test_log_level_prefix(void **state)
     LOG_INFO("Info!");
     LOG_DEBUG("Debug!");
     LOG_TRACE("Trace!");
-    c_log_close();
+    dewlog_close();
 
     char buf[BUFFER_SIZE];
     read_log_file(buf, sizeof(buf));
@@ -96,10 +96,10 @@ static void test_log_level_prefix(void **state)
     assert_true(strstr(buf, "[TRC] ") != NULL);
 }
 
-const struct CMUnitTest c_log_tests[] = {
+const struct CMUnitTest dewlog_tests[] = {
     cmocka_unit_test_setup_teardown(test_log_file_creation, setup, teardown),
     cmocka_unit_test_setup_teardown(test_log_message_written, setup, teardown),
     cmocka_unit_test_setup_teardown(test_log_level_prefix, setup, teardown),
 };
 
-const size_t c_log_tests_count = sizeof(c_log_tests) / sizeof(c_log_tests[0]);
+const size_t dewlog_tests_count = sizeof(dewlog_tests) / sizeof(dewlog_tests[0]);

@@ -1,7 +1,7 @@
 #!/bin/sh
 
-tests_exe="c_log_tests"
-file="c_log"
+tests_exe="dewlog_tests"
+file="dewlog"
 
 dir=""
 
