@@ -11,7 +11,7 @@ TODO
 Dependencies
 ------------
 
-  - [cmocka](https://github.com/clibs/cmocka) 1.1.5 (for tests only)
+  - [cmocka](https://gitlab.com/cmocka/cmocka) 1.1.5 (for tests only)
 
 How to Use
 ----------
