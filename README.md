@@ -1,4 +1,4 @@
-DEWLOG 0.2
+DEWLOG 0.3
 ===========
 
 C/C++ header-only logging library.

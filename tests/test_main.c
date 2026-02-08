@@ -4,6 +4,8 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
+// #define DEWLOG_NO_FILE
+// #define DEWLOG_NO_LINE
 #define DEWLOG_IMPLEMENTATION
 #include "dewlog.h"
 

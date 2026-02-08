@@ -8,7 +8,7 @@
 #define DEWLOG_LEVEL 4
 #include "dewlog.h"
 
-#define BUFFER_SIZE 512
+#define BUFFER_SIZE 1024
 #define TEMP_LOG_FILE "./temp.log"
 
 // Helper to read the log file into a buffer
@@ -37,7 +37,7 @@ static int teardown(void **state)
     (void)state;
 
     dewlog_close();
-    remove(TEMP_LOG_FILE);
+    // remove(TEMP_LOG_FILE);
 
     return 0;
 }
@@ -50,7 +50,6 @@ static void test_log_file_creation(void **state)
 
     FILE *f = fopen(TEMP_LOG_FILE, "r");
     assert_non_null(f);
-
     fclose(f);
 
     dewlog_close();

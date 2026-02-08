@@ -1,5 +1,5 @@
 /*
-dewlog.h - v0.2
+dewlog.h - v0.3
 
 Documentation:
     TODO: Write this...
@@ -45,7 +45,7 @@ void dewlog_close(void);
  *     1: WARNING,
  *     2: INFO,
  *     3: DEBUG,
- *     4 to UINT8_MAX: TRACE.
+ *     4: TRACE.
  *
  * \param[in] level The DEWLOG_LEVEL of the message,
  * \param[in] fmt A printf-style message format string.
@@ -56,13 +56,13 @@ void __dewlog__msg(const int level, const char *const file, const int line, cons
 
 #undef FORMAT_ATTR
 
-// If DEWLOG_LEVEL is not defined, use default DEWLOG_LEVEL
+/* If DEWLOG_LEVEL is not defined, use default DEWLOG_LEVEL */
 #ifndef DEWLOG_LEVEL
 #ifdef NDEBUG
-// Default DEWLOG_LEVEL for NDEBUG mode is DEWLOG_LEVEL_INFO
+/* Default DEWLOG_LEVEL for NDEBUG mode is DEWLOG_LEVEL_INFO */
 #define DEWLOG_LEVEL DEWLOG_LEVEL_INFO
 #else
-// Default DEWLOG_LEVEL in debug mode is DEWLOG_LEVEL_TRACE
+/* Default DEWLOG_LEVEL in debug mode is DEWLOG_LEVEL_TRACE */
 #define DEWLOG_LEVEL DEWLOG_LEVEL_TRACE
 #endif
 #endif
@@ -99,13 +99,12 @@ void __dewlog__msg(const int level, const char *const file, const int line, cons
 
 #ifdef DEWLOG_IMPLEMENTATION
 
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
+#include <string.h>
 
-#define TIMEBUF_MAX 32
-#define INFOBUF_MAX 256
+#define LOGBUF_MAX 512
 
 #define COLOR_RED    "\x1b[31m"
 #define COLOR_YELLOW "\x1b[33m"
@@ -115,31 +114,31 @@ void __dewlog__msg(const int level, const char *const file, const int line, cons
 #define COLOR_RESET  "\x1b[0m"
 
 /* TODO: Add thread safe access to static data (via #ifdef DEWLOG_THREAD_SAFE_*) */
-static bool DEWLOG_logging_to_file = false;
+static int DEWLOG_logging_to_file = 0;
 static FILE *DEWLOG_fp = NULL;
 static const char *DEWLOG_file_name = NULL;
 
 void dewlog_open(const char *const p_file_name)
 {
-    // First check if we are already logging to file
+    /* First check if we are already logging to file */
     if(DEWLOG_logging_to_file)
         return;
 
-    // Null check file_name
+    /* Null check file_name */
     if(p_file_name == NULL) {
-        DEWLOG_logging_to_file = false;
+        DEWLOG_logging_to_file = 0;
         DEWLOG_fp = stderr;
         return;
     }
 
-    // If file_name != NULL, open it as logging file
+    /* If file_name != NULL, open it as logging file */
     DEWLOG_fp = fopen(p_file_name, "w");
     if(DEWLOG_fp == NULL)
         return;
 
-    // Set the name of the log file
+    /* Set the name of the log file */
     DEWLOG_file_name = p_file_name;
-    DEWLOG_logging_to_file = true;
+    DEWLOG_logging_to_file = 1;
 
     LOG_INFO("Log file opened '%s'", DEWLOG_file_name);
 }
@@ -151,38 +150,37 @@ void dewlog_close(void)
 
     LOG_DEBUG("Attempting to close log file '%s'", DEWLOG_file_name);
 
-    // Check if log_file is NULL
+    /* Check if log_file is NULL */
     if(DEWLOG_fp == NULL)
         return;
 
-    // Close log_file
+    /* Close log_file */
     int ret = fclose(DEWLOG_fp);
     if(ret != 0) {
         LOG_DEBUG("Failed to close log file '%s'", DEWLOG_file_name);
         return;
     }
 
-    // Set file ptr to default stderr
+    /* Set file ptr to default stderr */
     DEWLOG_fp = stderr;
-    DEWLOG_logging_to_file = false;
+    DEWLOG_logging_to_file = 0;
 }
 
-void __dewlog__msg(const uint8_t level, const char *const file, const int32_t line, const char *const func,
+void __dewlog__msg(const int level, const char *const file, const int line, const char *const func,
     const char *const fmt, ...)
 {
-    // UNUSED
+    // Unused hack
     (void)file;
     (void)line;
+    (void)func;
 
-    // Null check fp_log
+    /* Null check fp_log */
     if(DEWLOG_fp == NULL)
         return;
 
-    int ret = 0;
-    size_t ret_LU = 0;
     const char *color = NULL;
 
-    // Set the color based on the log level of the message
+    /* Set the color based on the log level of the message */
     switch(level) {
     case DEWLOG_LEVEL_ERROR:
         color = COLOR_RED;
@@ -202,70 +200,101 @@ void __dewlog__msg(const uint8_t level, const char *const file, const int32_t li
         break;
     }
 
-    // Get the current time
+    int ret = 0;
+    size_t sret = 0;
+
     time_t now = time(NULL);
     struct tm *tm_now = localtime(&now);
+    char logbuf[LOGBUF_MAX];
 
-    // Format time string
-    char timebuf[TIMEBUF_MAX];
-    ret_LU = strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S", tm_now);
-    if(ret_LU == 0)
-        return;
+    sret = strftime(logbuf, sizeof(logbuf), "%Y-%m-%d %H:%M:%S ", tm_now);
+    if(sret == 0)
+        goto FMT_STR;
 
-    char infobuf[INFOBUF_MAX];
-    // ret = snprintf(infobuf, sizeof(infobuf), "%s:%d [%s]", file, line, func);
-    ret = snprintf(infobuf, sizeof(infobuf), "[%s]", func);
+#ifndef DEWLOG_FILE_MAX_LEN
+#define DEWLOG_FILE_MAX_LEN 35
+#endif
 
-    // TODO: check if ret < INFOBUF_MAX?
-    if(ret == 0)
-        return;
+#ifndef DEWLOG_FUNC_MAX_LEN
+#define DEWLOG_FUNC_MAX_LEN 25
+#endif
 
-    // Print date, time, log-level and info
+#ifndef DEWLOG_NO_FILE
+    size_t file_len = strlen(file);
+    if(file_len > DEWLOG_FILE_MAX_LEN) {
+        ret = snprintf(logbuf + sret, sizeof(logbuf) - sret, "...%*s", DEWLOG_FILE_MAX_LEN - 3,
+            file + file_len - (DEWLOG_FILE_MAX_LEN - 3));
+    }
+    else {
+        ret = snprintf(logbuf + sret, sizeof(logbuf) - sret, "%*s", DEWLOG_FILE_MAX_LEN, file);
+    }
+    if(ret <= 0)
+        goto FMT_STR;
+    sret += (size_t)ret;
+#endif
+#ifndef DEWLOG_NO_LINE
+    ret = snprintf(logbuf + sret, sizeof(logbuf) - sret, ":%4d ", line);
+    if(ret <= 0)
+        goto FMT_STR;
+    sret += (size_t)ret;
+#endif
+#ifndef DEWLOG_NO_FUNC
+    size_t func_len = strlen(func);
+    if(func_len > DEWLOG_FUNC_MAX_LEN) {
+        ret = snprintf(logbuf + sret, sizeof(logbuf) - sret, "[...%*s]", DEWLOG_FUNC_MAX_LEN - 3,
+            func + func_len - (DEWLOG_FUNC_MAX_LEN - 3));
+    }
+    else {
+        ret = snprintf(logbuf + sret, sizeof(logbuf) - sret, "[%*s]", DEWLOG_FUNC_MAX_LEN, func);
+    }
+    if(ret <= 0)
+        goto FMT_STR;
+    sret += (size_t)ret;
+#endif
+
+#undef DEWLOG_FILE_MAX_LEN
+#undef DEWLOG_FUNC_MAX_LEN
+
 #define DEWLOG_LEVEL_COUNT 5
-    static const char *const levels[DEWLOG_LEVEL_COUNT] = {"[ERR] ", "[WRN] ", "[INF] ", "[DBG] ", "[TRC] "};
+    static const char *levels[DEWLOG_LEVEL_COUNT] = {"[ERR]", "[WRN]", "[INF]", "[DBG]", "[TRC]"};
     if(DEWLOG_logging_to_file) {
         if(level < DEWLOG_LEVEL_COUNT)
-            ret = fprintf(DEWLOG_fp, "%s %s%s", timebuf, levels[level], infobuf);
+            ret = fprintf(DEWLOG_fp, "%s %s ", logbuf, levels[level]);
         else
-            ret = fprintf(DEWLOG_fp, "%s %s%s", timebuf, levels[DEWLOG_LEVEL_COUNT - 1], infobuf);
-        if(ret < 0)
-            return;
-    } else {
-        ret = fprintf(DEWLOG_fp, "%s %s%s%s%s ", timebuf, color, levels[level], COLOR_RESET,
-            infobuf);
-        if(ret < 0)
-            return;
+            ret = fprintf(DEWLOG_fp, "%s %s ", logbuf, levels[DEWLOG_LEVEL_COUNT - 1]);
+    }
+    else {
+        if(level < DEWLOG_LEVEL_COUNT)
+            ret = fprintf(DEWLOG_fp, "%s %s%s%s ", logbuf, color, levels[level], COLOR_RESET);
+        else
+            ret = fprintf(DEWLOG_fp, "%s %s%s%s ", logbuf, color, levels[DEWLOG_LEVEL_COUNT - 1], COLOR_RESET);
     }
 
-    // Null check format string
-    if(fmt == NULL)
+FMT_STR:
+
+    if(!fmt)
         goto NEWLINE;
 
-    // Initialize variable argument list
     va_list args;
     va_start(args, fmt);
 
-    // Print formatted string
     ret = vfprintf(DEWLOG_fp, fmt, args);
     if(ret < 0) {
         va_end(args);
         goto NEWLINE;
     }
 
-    // Cleanup va lists
     va_end(args);
 
 NEWLINE:
 
-    // Print newline
     ret = fprintf(DEWLOG_fp, "\n");
     if(ret < 0)
         return;
 }
 
-// Undef macros
-#undef TIMEBUF_MAX
-#undef INFOBUF_MAX
+/* Undef macros */
+#undef LOGBUF_MAX
 
 #undef COLOR_RED
 #undef COLOR_YELLOW
@@ -275,22 +304,28 @@ NEWLINE:
 
 #undef DEWLOG_LEVEL_COUNT
 
-#endif // DEWLOG_IMPLEMENTATION
+#endif /* DEWLOG_IMPLEMENTATION */
 
-// #undef DEWLOG_LEVEL_ERROR
-// #undef DEWLOG_LEVEL_WARN
-// #undef DEWLOG_LEVEL_INFO
-// #undef DEWLOG_LEVEL_DEBUG
-// #undef DEWLOG_LEVEL_TRACE
+/* #undef DEWLOG_LEVEL_ERROR */
+/* #undef DEWLOG_LEVEL_WARN  */
+/* #undef DEWLOG_LEVEL_INFO  */
+/* #undef DEWLOG_LEVEL_DEBUG */
+/* #undef DEWLOG_LEVEL_TRACE */
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // DEWLOG_H_
+#endif /* DEWLOG_H_ */
 
 /*
 Version History:
+    0.3 (2026-02-08) Added macros DEWLOG_NO_FILE, DEWLOG_NO_LINE and DEWLOG_NO_FUNC to disable printing of file name,
+                     line number and function name.
+                     DEWLOG_FILE_MAX_LEN and DEWLOG_FUNC_MAX_LEN macros added to limit the length of file and
+                     function name. Default values are
+                        - DEWLOG_FILE_MAX_LEN 35
+                        - DEWLOG_FUNC_MAX_LEN 25
     0.2 (2026-02-07) Changed name c_log -> dewlog.
     0.1 (2025-10-01) First released version.
 */
